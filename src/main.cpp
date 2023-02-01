@@ -1,20 +1,13 @@
-#include <Arduino.h>
+//#include <Arduino.h>
 #include "TestInsole.h"
 
 TestInsole testinsole;
 void setup() {
   Serial.begin(112500);
   testinsole.begin();
+  testinsole.setup();
   testinsole.screenIntro();
 }
-
-// void loop() {
-//   Serial.println("alo");
-// }
-
-
-
-
 void loop() {
   switch (testinsole.stateMH) {
     case 0:

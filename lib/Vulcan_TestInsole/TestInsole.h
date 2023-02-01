@@ -1,6 +1,8 @@
 #ifndef TEST_INSOLE_H
 #define TEST_INSOLE_H
 
+#include <WiFi.h>
+#include <FirebaseESP32.h>
 #include <SPI.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
@@ -8,23 +10,29 @@
 #include <ESP32Servo.h>
 #include "RTClib.h"
 
+#define WIFI_SSID "Vulcan Augmetics"
+#define WIFI_PASSWORD "wearevulcan.com"
+
+#define FIREBASE_HOST "exampletest-a2b25-default-rtdb.firebaseio.com"
+#define FIREBASE_AUTH "8IYQWktZVOLIVFN0cI4Lbu62DyWdAyPoqRdjlVDf"
+
 #define i2c_Address 0x3c
 
 #define SCREEN_WIDTH 128  // OLED display width, in pixels
 #define SCREEN_HEIGHT 64  // OLED display height, in pixels
 #define OLED_RESET -1     //   QT-PY / XIAO
 
-#define ANGLEMAX 65
-#define ANGLEMIN 15
-#define ANGLETB 35
-#define SPEED 8
+#define ANGLEMAX 111
+#define ANGLEMIN 67
+#define ANGLETB 85
+#define SPEED 7
 
-#define CLK 27
+#define CLK 5
 #define DT 25
 #define SW 26
 
-#define INSOLE_1 32
-#define INSOLE_2 33
+#define INSOLE_1 18
+#define INSOLE_2 19
 
 #define SERVO 4
 
@@ -68,11 +76,13 @@ private:
 
     Adafruit_SH1106G display = Adafruit_SH1106G(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
+    FirebaseData firebaseDate;
+    String path = "/";
     // Rotary Encoder Inputs
     
     uint8_t stateTG = 1;
 
-    int counter = 0;
+    int16_t counter = 0;
     int currentStateCLK;
     int lastStateCLK;
     String currentDir = "";
@@ -99,6 +109,14 @@ private:
     uint8_t ngay = 0;
     uint8_t gio = 0;
     uint8_t phut = 0;
+
+    int8_t strThang = -1;
+    int8_t strNgay = -1;
+    int8_t strGio = -1;
+    int8_t strPhut = -1;
+
+    uint8_t lastRunGio = -1;
+    uint8_t lastRunPhut = -1;
 };
 
 #endif

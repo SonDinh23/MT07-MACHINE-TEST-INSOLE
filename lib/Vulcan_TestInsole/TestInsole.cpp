@@ -26,6 +26,26 @@ void TestInsole::begin() {
 }
 
 void TestInsole::setup() {
+    //uint32_t lastTime = millis();
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    while(WiFi.status() != WL_CONNECTED) {
+        Serial.print(".");
+        delay(300);
+        // if(millis() - lastTime > 5000) {
+        //     break;
+        //     lastTime = millis(); 
+        // }
+    }
+    Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
+    Firebase.reconnectWiFi(true);
+    Serial.println("Connection");
+    if(!Firebase.beginStream(firebaseDate, path)) {
+        Serial.println("Reason: "+firebaseDate.errorReason());
+        Serial.println();
+    }
+  
+    Serial.print("ok ");
+
     rtc.begin();
     if (!rtc.isrunning()) {
         rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
@@ -42,13 +62,14 @@ void TestInsole::screenIntro() {
     display.setTextSize(1);
     display.setCursor(55, 23);
     display.setTextColor(SH110X_WHITE);
-    display.print("VULCAN");
+    display.print(F("VULCAN"));
     display.setCursor(55, 33);
-    display.print("AUGMETICS");
+    display.print(F("AUGMETICS"));
     display.display();
-    delay(2000);
+    delay(1);
     lastStateCLK = digitalRead(CLK);
     stateMH = 0;
+    setServoTB();
 }
 
 void TestInsole::printTriangle(uint8_t st) {
@@ -76,14 +97,14 @@ uint8_t TestInsole::updateEncoder() {
         // If the DT state is different than the CLK state then
         // the encoder is rotating CCW so decrement
         if (digitalRead(DT) != currentStateCLK) {
-        counter++;
-        stateTG = 2;
+            counter++;
+            stateTG = 1;
         } else {
         // Encoder is rotating CW so increment
         counter--;
-        stateTG = 1;
+        stateTG = 2;
     }
-    //Serial.println(counter);
+    
   }
 
   // Remember last CLK state
@@ -94,19 +115,6 @@ uint8_t TestInsole::updateEncoder() {
 
 void TestInsole::printTargetset(int16_t countTargetset) {
     static int16_t lastCountTargetset = -1;
-
-    if (countTargetset == 0) {
-        display.setCursor(30, 37);
-        display.setTextColor(SH110X_WHITE);
-        display.print(countTargetset);
-        display.display();
-        delay(400);
-        display.setCursor(30, 37);
-        display.setTextColor(SH110X_BLACK);
-        display.print(countTargetset);
-        display.display();
-    }
-
     if (lastCountTargetset != countTargetset) {
         // in lastCount1 mau nen
         display.setCursor(30, 37);
@@ -139,7 +147,7 @@ void TestInsole::printCountTarget1(int16_t demTarget) {
 
     if (lastDemTargetset != demTarget) {
         // in lastCount1 mau nen
-        targetCount(103, 37, lastDemTargetset, demTarget);
+        targetCount(83, 37, lastDemTargetset, demTarget);
         lastDemTargetset = demTarget;
     }
 }
@@ -182,7 +190,7 @@ uint16_t TestInsole::testInsole_2() {
 
 void TestInsole::printInsole_1(uint16_t countIns1) {
     static int16_t lastCount1 = -1;
-
+    //Serial.println(countIns1);
     if (lastCount1 != countIns1) {
         // in lastCount1 mau nen
         display.setCursor(12, 55);
@@ -287,10 +295,6 @@ void TestInsole::printRtcNow(uint8_t month, uint8_t day, uint8_t hour, uint8_t m
 }
 
 void TestInsole::printRtcStart(uint8_t month, uint8_t day, uint8_t hour, uint8_t minute) {
-    static int8_t strThang = -1;
-    static int8_t strNgay = -1;
-    static int8_t strGio = -1;
-    static int8_t strPhut = -1;
 
     if (month != strThang) {
         printMonth(40, 20, strThang, month);
@@ -314,8 +318,6 @@ void TestInsole::printRtcStart(uint8_t month, uint8_t day, uint8_t hour, uint8_t
 }
 
 void TestInsole::printRunTime( uint8_t hour, uint8_t minute) {
-    static uint8_t lastRunGio = -1;
-    static uint8_t lastRunPhut = -1;
 
     if (hour != lastRunGio) {
         printMonth(40, 37, lastRunGio, hour);
@@ -351,7 +353,19 @@ void TestInsole::setServoTB() {
 }
 
 void TestInsole::display1() {
+    setServoTB();
     //display.drawBitmap(0, 50, logo16_glcd_bmp, 12, 14, 1);
+    Firebase.setString(firebaseDate, path + "/btnStart1", 0);
+    Firebase.setString(firebaseDate, path + "/btnPause1", 0);
+    Firebase.setString(firebaseDate, path + "/btnStop1", 0);
+
+    Firebase.setString(firebaseDate, path + "/btnStart2", 0);
+    Firebase.setString(firebaseDate, path + "/btnPause2", 0);
+    Firebase.setString(firebaseDate, path + "/btnStop2", 0);
+
+    Firebase.setInt(firebaseDate, path + "/countdata1", 0);
+    Firebase.setInt(firebaseDate, path + "/countdata2", 0);
+
     display.clearDisplay();
     display.setTextSize(2);
     display.setTextColor(SH110X_WHITE);
@@ -364,20 +378,21 @@ void TestInsole::display1() {
     display.setCursor(45, 52);
     display.println("Test 2");
     display.display();
-
+    uint32_t lastTime = millis();
     while (true) {
         int8_t tamgiac = updateEncoder();
         printTriangle(tamgiac);
         if (digitalRead(SW) == 0) {
-            delay(80);
-            stateMH = tamgiac;
-            break;
+            if(millis() - lastTime > 80) {
+                stateMH = tamgiac;
+                break;
+            }
         }
     }
 }
 
 void TestInsole::display2() {
-    Serial.println("alooo");
+    
     display.clearDisplay();
     display.setCursor(4, 0);
     display.setTextSize(1);
@@ -409,16 +424,24 @@ void TestInsole::display2() {
     display.setCursor(70, 55);
     display.println("R:");
     display.display();
-    Serial.println("ookk");
-
+    
     counter = 0;
     uint16_t count1 = 0;
     uint32_t lastTime = millis();
+    uint32_t lastTimeA = millis();
+    uint32_t lastTimeB = millis();
+    uint32_t lastTimeC = millis();
+    uint32_t lastTimeD = millis();
+    uint32_t lastTimeE = millis();
+    uint32_t lastTimeF = millis();
+    uint32_t lastTimeG = millis();
+    uint32_t lastTimeH = millis();
+    uint32_t lastTimeI = millis();
   
     uint8_t stateStartTest1 = 0;
     uint8_t statePauseTest1 = 0;
     bool statePauseBool = false;
-
+    
     DateTime now = rtc.now();
 
     thang = 0;
@@ -431,91 +454,219 @@ void TestInsole::display2() {
     printInsole_1(countInsole_1);
     printInsole_2(countInsole_2);
     
-    
+    String x;
+    String y;
+    String z;
+
+    int8_t e;
+    int8_t u;
+    int8_t t;
     while (true) {
-        updateEncoder();
 
         now = rtc.now();
         printRtcNow(now.month(), now.day(), now.hour(), now.minute());
+        
+        updateEncoder();
 
         if (counter < 0) counter = 0;
-            count1 = counter * 10;
+        count1 = counter * 100;
 
-        if (millis() - lastTime > 200) {
-            printTargetset(count1);
+        printTargetset(count1);
+
+        if(millis() - lastTime > 3000) {
+            Firebase.setInt(firebaseDate, path + "/data1", count1);
             lastTime = millis();
         }
 
+        if(millis() - lastTimeA > 1500) {
+            if(Firebase.getString(firebaseDate, path + "/btnStart1")) x = firebaseDate.stringData();
+            e = x.toInt();
+            //Serial.println(e);
+            lastTimeA = millis();
+        }
         uint16_t data = count1;
 
-        while (digitalRead(SW) == 0) {
-            if(millis() - lastTime > 200) {
-                stateStartTest1++;
-                lastTime = millis();
-            }
+        if(e == 1) {
+            stateStartTest1 = 2;
             countInsole_1 = 0;
             countInsole_2 = 0;
         }
 
-        if(data != 0) {
-            if ((stateStartTest1 > 1) && (stateStartTest1 < 5)) {
-                stateStartTest1 = 0;
-      
-                uint16_t dem1 = 0;
-                for (int i = 0; i < data; i++) {
-
-                    now = rtc.now();
-                    printRtcNow(now.month(), now.day(), now.hour(), now.minute());
-
-                    setServo();
-          
-                    dem1++;
-                    printCountTarget1(dem1);
-                    while (digitalRead(SW) == 0) {
-                        statePauseTest1 = 1;
-                    }
-
-                    if (statePauseTest1 == 1) {
-                        statePauseBool= true;
-
-                        setServoTB();
-
-                        while (statePauseBool == true) {
+        while (digitalRead(SW) == 0) {
+            if(millis() - lastTimeF > 80) {
+                stateStartTest1++;
+                Serial.println(stateStartTest1);
+                lastTimeF = millis();
+            }
             
-                            display.drawBitmap(115, 0, logo16_glcd_bmp, 12, 14, SH110X_WHITE);
-                            display.display();
+            countInsole_1 = 0;
+            countInsole_2 = 0;
+        }
 
-                            now = rtc.now();
-                            printRtcNow(now.month(), now.day(), now.hour(), now.minute());
+        if ((stateStartTest1 >= 1) && (stateStartTest1 < 5)) {
+            //Serial.println("alo");
+            Firebase.setString(firebaseDate, path + "/btnStart1", 0);
+            stateStartTest1 = 0;
+        
+            uint16_t dem1 = 0;
+            for (int i = 0; i < data; i++) {
+                now = rtc.now();
+                printRtcNow(now.month(), now.day(), now.hour(), now.minute());
 
-                            while (digitalRead(SW) == 0) {
-                                if(millis() - lastTime > 200) {
-                                    statePauseBool = false;
-                                    statePauseTest1 = 0;
-                                    stateStartTest1++;
-                                    lastTime = millis();
-                                }else if(stateStartTest1 > 5) {
-                                    break;
-                                }
+                setServo();
+                // Serial.println(testInsole_1());
+                // Serial.println(testInsole_2());
+                if (millis() - lastTimeB > 500) {
+                    Firebase.setInt(firebaseDate, path + "/datacount1R", testInsole_1());
+                    Firebase.setInt(firebaseDate, path + "/datacount1L", testInsole_2());
+                    lastTimeB = millis();
+                }
+
+                dem1++;
+                if(millis() - lastTimeC > 2000) {
+                    float ml = (float) dem1/data * 100.0;
+                    int ap = (int)ml;
+                    Firebase.setInt(firebaseDate, path + "/countdata1", dem1);
+                    Firebase.setInt(firebaseDate, path + "/data", ml);
+                    lastTimeC = millis();
+                }
+                printCountTarget1(dem1);
+        
+                if ((digitalRead(INSOLE_1) == 1) && (digitalRead(INSOLE_2) == 1)) {
+                    if (millis() - lastTimeG > 400) {
+                        stateInsoleError++;
+                        lastTimeG = millis();
+                    }
+                    if (stateInsoleError > 5) {
+                        stateInsoleError = 5;
+                        break;
+                    }
+                }
+                if (stateInsoleError == 5) {
+                    statePauseBool = true;
+
+                    setServoTB();
+
+                    while (statePauseBool == true) {
+                        display.drawBitmap(115, 0, logo16_glcd_bmp, 12, 14, SH110X_WHITE);
+                        display.display();
+
+                        if(Firebase.getString(firebaseDate, path + "/btnPause1")) y = firebaseDate.stringData();
+                        u = y.toInt();
+                        Serial.println(u);
+                        if(u == 1) {
+                            statePauseTest1 = 0;
+                            Firebase.setInt(firebaseDate, path + "/btnPause1", 0);
+                            break;
+                        }
+
+                        if(Firebase.getString(firebaseDate, path + "/btnStop1")) z = firebaseDate.stringData();
+                        t = z.toInt();
+                        Serial.println(t);
+                        if(t == 1) {
+                            statePauseTest1 = 0;
+                            stateStartTest1 = 7;
+                            Firebase.setInt(firebaseDate, path + "/btnStop1", 0);
+                            break;
+                        }
+
+                        while (digitalRead(SW) == 0) {
+                            if (millis() - lastTimeH > 400) {
+                                statePauseBool = false;
+                                stateInsoleError = 0;
+                                stateStartTest1++;
+                                lastTimeH = millis();
                             }
                         }
-                        display.drawBitmap(115, 0, logo16_glcd_bmp, 12, 14, SH110X_BLACK);
-                        display.display();
                     }
-                    if (stateStartTest1 >= 5) {
-                        break;
-                    } 
+                    display.drawBitmap(115, 0, logo16_glcd_bmp, 12, 14, 0);
+                    display.display();
                 }
-                setServoTB();
+
+                if(millis() - lastTimeE > 1000) {
+                    if(Firebase.getString(firebaseDate, path + "/btnStop1")) z = firebaseDate.stringData();
+                    t = z.toInt();
+                    //Serial.println(t);
+                    if(t == 1) {
+                        stateStartTest1 = 7;
+                        Firebase.setString(firebaseDate, path + "/btnStop1", 0);
+                        break;
+                    }
+                    lastTimeE = millis();
+                }
+
+                //Serial.println("chao");
+                if(millis() - lastTimeD > 1000) {
+                    if(Firebase.getString(firebaseDate, path + "/btnPause1")) y = firebaseDate.stringData();
+                    u = y.toInt();
+                    //Serial.println(u);
+                    lastTimeD = millis();
+                }
+                if(u == 1) {
+                    statePauseTest1 = 1;
+                }
+
+        
+                while (digitalRead(SW) == 0) {
+                    statePauseTest1 = 1;
+                }
+
+                if (statePauseTest1 == 1) {
+                    Firebase.setString(firebaseDate, path + "/btnPause1", 0);
+                    statePauseBool = true;
+
+                    setServoTB();
+
+                    while (statePauseBool == true) {
+                        display.drawBitmap(115, 0, logo16_glcd_bmp, 12, 14, SH110X_WHITE);
+                        display.display();
+
+                        now = rtc.now();
+                        printRtcNow(now.month(), now.day(), now.hour(), now.minute());
+
+                        if(Firebase.getString(firebaseDate, path + "/btnPause1")) y = firebaseDate.stringData();
+                        u = y.toInt();
+                        //Serial.println(u);
+                        if(u == 1) {
+                            statePauseTest1 = 0;
+                            Firebase.setString(firebaseDate, path + "/btnPause1", 0);
+                            break;
+                        }
+
+                        if(Firebase.getString(firebaseDate, path + "/btnStop1")) z = firebaseDate.stringData();
+                        t = z.toInt();
+                        //Serial.println(t);
+                        if(t == 1) {
+                            statePauseTest1 = 0;
+                            stateStartTest1 = 7;
+                            Firebase.setString(firebaseDate, path + "/btnStop1", 0);
+                            break;
+                        }
+
+                        while (digitalRead(SW) == 0) {
+                            if (millis() - lastTimeI > 300) {
+                                statePauseBool = false;
+                                statePauseTest1 = 0;
+                                stateStartTest1++;
+                                Serial.println(stateStartTest1);
+                                lastTimeI = millis();
+                            }
+                        }
+                    }
+                    display.drawBitmap(115, 0, logo16_glcd_bmp, 12, 14, SH110X_BLACK);
+                    display.display();
+                }
+                if (stateStartTest1 >= 5) {
+                    break;
+                }
             }
+            setServoTB();
         }
         if (stateStartTest1 >= 5) {
             stateMH = 0;
             break;
         }
     }
-    Serial.println("oke");
-    
 }
 
 void TestInsole::display3() {
@@ -554,6 +705,16 @@ void TestInsole::display3() {
     display.display();
 
     uint32_t lastTime = millis();
+    uint32_t lastTimeA = millis();
+    uint32_t lastTimeB = millis();
+    uint32_t lastTimeC = millis();
+    uint32_t lastTimeD = millis();
+    uint32_t lastTimeE = millis();
+    uint32_t lastTimeF = millis();
+    uint32_t lastTimeG = millis();
+    uint32_t lastTimeH = millis();
+    uint32_t lastTimeI = millis();
+
 
     DateTime now = rtc.now();
 
@@ -561,8 +722,16 @@ void TestInsole::display3() {
     uint8_t statePauseTest2 = 0;
     bool statePauseBool = false;
 
+    lastRunGio = -1;
+    lastRunPhut = -1;
+
     runGio = 0;
     runPhut = 0;
+
+    strThang = -1;
+    strNgay = -1;
+    strGio = -1;
+    strPhut = -1;
 
     thangStr = 0;
     ngayStr = 0;
@@ -592,17 +761,22 @@ void TestInsole::display3() {
 
     uint16_t tempPause2 = 0;
 
-    while (true)
-    {
+    String x;
+    String y;
+    String z;
+
+    int8_t w;
+    int8_t e;
+    int8_t h;
+
+    while (true) {
 
         now = rtc.now();
 
-        while (digitalRead(SW) == 0)
-        {
-            if (millis() - lastTime > 100)
-            {
+        while (digitalRead(SW) == 0) {
+            if(millis() - lastTime > 200) {
                 stateStartTest2++;
-                // Serial.println(stateStartTest2);
+                Serial.println(stateStartTest2);
                 lastTime = millis();
             }
 
@@ -614,105 +788,175 @@ void TestInsole::display3() {
             phutStr = now.minute();
 
             printRtcStart(thangStr, ngayStr, gioStr, phutStr);
-            tempTimeStart = (((ngayStr * 24) * 60) + (gioStr * 60) + phutStr);
+            tempTimeStart = (((ngayStr*24)*60) + (gioStr*60) + phutStr);
             countInsole_1 = 0;
             countInsole_2 = 0;
-            // Serial.println("In thoi gian start:");
-            // Serial.println(tempTimeStart);
+            //Serial.println("In thoi gian start:");
+            //Serial.println(tempTimeStart);
         }
-        if ((stateStartTest2 > 1) && (stateStartTest2 < 5))
-        {
 
+        if(millis() - lastTimeA > 1000) {
+            if(Firebase.getString(firebaseDate, path + "/btnStart2")) x = firebaseDate.stringData();
+            w = x.toInt();
+            //Serial.println(w);
+            lastTimeA = millis();
+        }
+        if(w == 1) {
+            stateStartTest2 = 2;
+
+            now = rtc.now();
+
+            thangStr = now.month();
+            ngayStr = now.day();
+            gioStr = now.hour();
+            phutStr = now.minute();
+
+            printRtcStart(thangStr, ngayStr, gioStr, phutStr);
+            tempTimeStart = (((ngayStr*24)*60) + (gioStr*60) + phutStr);
+
+            countInsole_1 = 0;
+            countInsole_2 = 0;
+        }
+
+        if ((stateStartTest2 >= 1) && (stateStartTest2 < 5)) {
+
+            Firebase.setString(firebaseDate, path + "/btnStart2", 0);
             stateStartTest2 = 0;
             uint16_t dem2 = 0;
 
-            for (;;)
-            {
+            for (;;) {
+                //if(millis() - lastTime > 50) {
+                    now = rtc.now();
+                    nowDay = now.day();
+                    nowHour = now.hour();
+                    nowMinute = now.minute();
 
-                Serial.println("up");
+                    tempTimeNow = (((nowDay*24)*60) + (nowHour*60) + nowMinute);
 
-                // if(millis() - lastTime > 50) {
-                now = rtc.now();
-                nowDay = now.day();
-                nowHour = now.hour();
-                nowMinute = now.minute();
-
-                tempTimeNow = (((nowDay * 24) * 60) + (nowHour * 60) + nowMinute);
-
-                if (tempTimePause != 0)
-                {
-                    // tempTimeStart = tempTimeStart - tempTimePause;
-                    tempPause = tempTimeNow - tempTimePause;
-                    tempTimePause = 0;
-                    tempPause2 = tempPause2 + tempPause;
-                }
-                Serial.println(tempPause2);
-                tempTime = tempTimeNow - tempTimeStart;
-                tempRun = tempTime - tempPause2;
-                // tempPause = 0;
-                //  Serial.println("In thoi gian tru:");
-                //  Serial.println(tempRun);
-                while (tempRun >= 60)
-                {
-                    tempRun = tempRun - 60;
-                    ul++;
-                }
-                // Serial.println(tempRun);
-                printRunTime(ul, tempRun);
-                // lastTime = millis();
+                    if(tempTimePause != 0) {
+                        // tempTimeStart = tempTimeStart - tempTimePause;
+                        tempPause = tempTimeNow - tempTimePause;
+                        tempTimePause = 0;
+                        tempPause2 = tempPause2 + tempPause; 
+                    }
+                    //Serial.println(tempPause2);
+                    tempTime = tempTimeNow - tempTimeStart;
+                    tempRun = tempTime - tempPause2;
+                    // tempPause = 0;
+                    //  Serial.println("In thoi gian tru:");
+                    //  Serial.println(tempRun);
+                    while(tempRun >= 60) {
+                        tempRun = tempRun - 60;
+                        ul++;
+                    }
+                    //Serial.println(tempRun);
+                    printRunTime(ul, tempRun);
+                    //lastTime = millis();
                 //}
+                if(millis() - lastTimeI > 500) {
+                    Firebase.setInt(firebaseDate, path + "/runtimeH", ul);
+                    Firebase.setInt(firebaseDate, path + "/runtimeM", tempRun);
+                    lastTimeI = millis();
+                }
+        
 
                 setServo();
 
+                if(millis() - lastTimeB > 1000) {
+                    Firebase.setInt(firebaseDate, path + "/datacount2R", testInsole_1());
+                    Firebase.setInt(firebaseDate, path + "/datacount2L", testInsole_2());
+                    lastTimeB = millis();
+                }
+
                 dem2++;
+                if(millis() - lastTimeC > 2000) {
+                    Firebase.setInt(firebaseDate, path + "/countdata2", dem2);
+                    lastTimeC = millis();
+                }
                 printCountTarget2(dem2);
 
-                if ((digitalRead(INSOLE_1) == 1) && (digitalRead(INSOLE_2) == 1))
-                {
-                    if (millis() - lastTime > 200)
-                    {
-                        stateInsoleError++;
-                        // Serial.println(stateInsoleError);
-                        lastTime = millis();
-                    }
-                    if (stateInsoleError > 5)
-                    {
-                        stateInsoleError = 5;
-                        Serial.println("out");
-                        break;
-                    }
+                if ((digitalRead(INSOLE_1) == 1) && (digitalRead(INSOLE_2) == 1)) {
+                  if(millis() - lastTimeG > 400) {
+                    stateInsoleError++;
+                    //Serial.println(stateInsoleError);
+                    lastTimeG = millis();
+                  }
+                  if(stateInsoleError > 5) {
+                    stateInsoleError = 5;
+                    Serial.println("out");
+                    break;
+                  }
                 }
-                if (stateInsoleError == 5)
-                {
-                    statePauseBool = true;
+                if (stateInsoleError == 5) {
+                  statePauseBool = true;
 
-                    setServoTB();
+                  setServoTB();
 
-                    while (statePauseBool == true)
-                    {
-                        display.drawBitmap(115, 0, logo16_glcd_bmp, 12, 14, SH110X_WHITE);
-                        display.display();
-                        // Serial.println("hu");
-                        while (digitalRead(SW) == 0)
-                        {
-                            if (millis() - lastTime > 200)
-                            {
-                                statePauseBool = false;
-                                stateInsoleError = 0;
-                                stateStartTest2++;
-                            }
-                        }
-                    }
-                    display.drawBitmap(115, 0, logo16_glcd_bmp, 12, 14, 0);
+                  while (statePauseBool == true) {
+                    display.drawBitmap(115, 0, logo16_glcd_bmp, 12, 14, SH110X_WHITE);
                     display.display();
+
+                    if(Firebase.getString(firebaseDate, path + "/btnPause2")) y = firebaseDate.stringData();
+                    e = y.toInt();
+                    //Serial.println(e);
+                    if(e == 1) {
+                      statePauseTest2 = 0;
+                      Firebase.setString(firebaseDate, path + "/btnPause2", 0);
+                      break;
+                    }
+
+                    if(Firebase.getString(firebaseDate, path + "/btnStop2")) z = firebaseDate.stringData();
+                    h = z.toInt();
+                    //Serial.println(h);
+                    if(h == 1) {
+                      statePauseTest2 = 0;
+                      stateStartTest2 = 7;
+                      Firebase.setString(firebaseDate, path + "/btnStop2", 0);
+                      break;
+                    }
+
+                    while (digitalRead(SW) == 0) {
+                      if(millis() - lastTimeH > 400) {
+                        statePauseBool = false;
+                        stateInsoleError = 0;
+                        stateStartTest2++;
+                        lastTimeH = millis();
+                      }
+                    }
+                  }
+                  display.drawBitmap(115, 0, logo16_glcd_bmp, 12, 14, 0);
+                  display.display();
                 }
 
-                while (digitalRead(SW) == 0)
-                {
+                //Serial.println("chao");
+                if(millis() - lastTimeD > 500) {
+                    if(Firebase.getString(firebaseDate, path + "/btnPause2")) y = firebaseDate.stringData();
+                    e = y.toInt();
+                    //Serial.println(e);
+                    lastTimeD = millis();
+                }
+                if(e == 1) {
                     statePauseTest2 = 1;
                 }
-                if (statePauseTest2 == 1)
-                {
+
+                if(millis() - lastTimeE > 500) {
+                    if(Firebase.getString(firebaseDate, path + "/btnStop2")) z = firebaseDate.stringData();
+                    h = z.toInt();
+                    //Serial.println(h);
+                    if(h == 1) {
+                        stateStartTest2 = 7;
+                        Firebase.setString(firebaseDate, path + "/btnStop2", 0);
+                        break;
+                    }
+                    lastTimeE = millis();
+                }        
+
+                while (digitalRead(SW) == 0) {
+                    statePauseTest2 = 1;
+                }
+
+                if (statePauseTest2 == 1) {
+                    Firebase.setString(firebaseDate, path + "/btnPause2", 0);
                     statePauseBool = true;
 
                     setServoTB();
@@ -722,42 +966,55 @@ void TestInsole::display3() {
                     hourPause = now.hour();
                     dayPause = now.day();
 
-                    tempTimePause = (((dayPause * 24) * 60) + (hourPause * 60) + minutesPause);
-                    // Serial.println("In thoi gian pause:");
-                    Serial.println(tempTimeStart);
+                    tempTimePause = (((dayPause*24)*60) + (hourPause*60) + minutesPause);
+                    //Serial.println("In thoi gian pause:");
+                    //Serial.println(tempTimeStart);
 
-                    while (statePauseBool == true)
-                    {
+                    while (statePauseBool == true) {
                         display.drawBitmap(115, 0, logo16_glcd_bmp, 12, 14, SH110X_WHITE);
                         display.display();
-                        while (digitalRead(SW) == 0)
-                        {
-                            if (millis() - lastTime > 200)
-                            {
+
+                        if(Firebase.getString(firebaseDate, path + "/btnPause2")) y = firebaseDate.stringData();
+                        e = y.toInt();
+                        //Serial.println(e);
+                        if(e == 1) {
+                            statePauseTest2 = 0;
+                            Firebase.setString(firebaseDate, path + "/btnPause2", 0);
+                            break;
+                        }
+
+                        if(Firebase.getString(firebaseDate, path + "/btnStop2")) z = firebaseDate.stringData();
+                        h = z.toInt();
+                        //Serial.println(h);
+                        if(h == 1) {
+                            statePauseTest2 = 0;
+                            stateStartTest2 = 7;
+                            Firebase.setString(firebaseDate, path + "/btnStop2", 0);
+                            break;
+                        }
+
+                        while (digitalRead(SW) == 0) {
+                            if(millis() - lastTimeF > 300) {
                                 statePauseBool = false;
                                 statePauseTest2 = 0;
                                 stateStartTest2++;
-                                lastTime = millis();
-                            }
-                            else if (stateStartTest2 > 5)
-                            {
-                                break;
+                                Serial.println(stateStartTest2);
+                                lastTimeF = millis();
                             }
                         }
                     }
                     display.drawBitmap(115, 0, logo16_glcd_bmp, 12, 14, 0);
                     display.display();
+          
                 }
-                if (stateStartTest2 > 5)
-                {
+                if (stateStartTest2 > 5) {
                     break;
                 }
             }
-        }
-        else if (stateStartTest2 > 5)
-        {
+            setServoTB();
+        } else if (stateStartTest2 > 5) {
             stateMH = 0;
             break;
         }
-  }
+    }
 }

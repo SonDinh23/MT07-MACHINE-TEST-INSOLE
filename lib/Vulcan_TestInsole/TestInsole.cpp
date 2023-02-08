@@ -21,7 +21,7 @@ void TestInsole::begin() {
 
     pinMode(INSOLE_1, INPUT_PULLUP);
     pinMode(INSOLE_2, INPUT_PULLUP);
-    myservo.attach(SERVO);
+    myservo.attach(SERVO,1000,2000);
     display.begin(i2c_Address, true);
 }
 
@@ -69,7 +69,7 @@ void TestInsole::screenIntro() {
     delay(1);
     lastStateCLK = digitalRead(CLK);
     stateMH = 0;
-    setServoTB();
+    //setServoTB();
 }
 
 void TestInsole::printTriangle(uint8_t st) {

@@ -21,7 +21,7 @@ void TestInsole::begin() {
 
     pinMode(INSOLE_1, INPUT_PULLUP);
     pinMode(INSOLE_2, INPUT_PULLUP);
-    myservo.attach(SERVO,1000,2000);
+    myservo.attach(SERVO);
     display.begin(i2c_Address, true);
 }
 

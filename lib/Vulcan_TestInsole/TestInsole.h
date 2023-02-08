@@ -22,10 +22,10 @@
 #define SCREEN_HEIGHT 64  // OLED display height, in pixels
 #define OLED_RESET -1     //   QT-PY / XIAO
 
-#define ANGLEMAX 119
-#define ANGLEMIN 53
-#define ANGLETB 85
-#define SPEED 7
+#define ANGLEMAX 97   // Trai
+#define ANGLEMIN 60   // Phai
+#define ANGLETB 77
+#define SPEED 6
 
 #define CLK 5
 #define DT 25
